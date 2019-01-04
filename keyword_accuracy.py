@@ -174,6 +174,7 @@ def main():
     fillerList = ['我要' ,'我想' ,'我想要' ,'請幫我' ,'我要換' ,'我要訂' ,'我要看' ,'我要拿' ,'我要對' ,'我想找' ,'補印' ,'的票' ,'有沒有']
     #keyworddict,allsubkey,symboleItem = loadKW2SKW('sw2a_1206v1.xlsx.csv-step3.words')
     keyworddict,allsubkey,symboleItem = loadSW2IDX('sw2idx_1206v1')
+    ouputfilename = '1217_idx.xlsx'
     #print(symboleItem)
     #if 'card' in allsubkey:
     #    print('inin')
@@ -205,7 +206,7 @@ def main():
     mostpossibleKeyword = []
     for i in range(len(df)):
         inStr = df.iloc[i]['標記逐字稿']
-        ASRresult = df.iloc[i]['ASR辨識結果']
+        ASRresult = df.iloc[i]['ASR辨識結果']#1226NG ASR結果
         humanListenAction = df.iloc[i]['逐字稿斷詞語意結果']
         ASRAction = df.iloc[i]['ASR辨識語意結果']
         allpossibleList = getAllpossible(inStr,allsubkey,symboleItem)
@@ -267,7 +268,7 @@ def main():
                 minLenpossible = ''
                 thisturnpossibleKeyword = ''
                 if len(allpossibleList) > 1:
-                    print(inStr, allpossibleList)
+                    #print(inStr, allpossibleList)
                     for possible in allpossibleList:
                         possibleList = possible.split(' ') 
                         if len(possibleList) < minLen:
@@ -323,7 +324,13 @@ def main():
                             checkStr = str(inStr)[:]
                             for item in intersection:
                                 checkStr = checkStr.replace(item,' ')
+                                checkStr = checkStr.replace(item.replace('+','').replace('-',''),' ')
                             checkStrList = checkStr.split(' ')
+                            if not intersection:
+                                for item in ASRkeywordList:
+                                    checkStr = checkStr.replace(item,' ')
+                                    checkStr = checkStr.replace(item.replace('+','').replace('-',''),' ')
+                                checkStrList = checkStr.split(' ')
                             for item in checkStrList:
                                 if item in fillerList or item == '':
                                     checkStrList.remove(item)
@@ -355,7 +362,7 @@ def main():
     df['mostpossibleKeyword'] = mostpossibleKeyword
     df1 = df[['標記逐字稿','ASR辨識結果','subkeyword','逐字稿斷詞結果','matchKeyword','mostpossibleKeyword','accuracy','語音辨識是否正確']]
     
-    writer = pd.ExcelWriter('1217_idx.xlsx',engine='xlsxwriter')
+    writer = pd.ExcelWriter(ouputfilename,engine='xlsxwriter')
     df1.to_excel(writer,'Sheet1')
 
     writer.save()
