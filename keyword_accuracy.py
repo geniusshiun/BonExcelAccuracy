@@ -108,6 +108,7 @@ def generatesub(inputStr,allsubkey):
         #print('=================')
     return allGroup
 def getAllpossible(inputString,allsubkey,symboleItem):
+    
     if str(inputString) == 'nan':
         return []
     inputString = inputString.lower()
@@ -115,10 +116,12 @@ def getAllpossible(inputString,allsubkey,symboleItem):
     for subkey in allsubkey:
         if subkey in inputString:
             allcandidateSubdict[subkey] = len(subkey)
-        
+    
     allcandidateSubdict = sorted(allcandidateSubdict.items(), key=lambda kv: kv[1],reverse=True)
     allcandidateSub = [allcandidateSubdict[i][0] for i in range(len(allcandidateSubdict))]
-    allcandidateSub = [item for item in allcandidateSub if len(item) > 1]
+    allcandidateSub = [item for item in allcandidateSub if len(item) > 1] # ger rid of single word
+    
+    
     #print(inputString,allcandidateSub) #debug use
     
     allGroup = generatesub(inputString,allcandidateSub)
@@ -133,22 +136,49 @@ def getAllpossible(inputString,allsubkey,symboleItem):
                 index = [m.start() for m in re.finditer(item,inputString)][0]
                 allocate[index] = item
             for item in sorted(allocate.items(), key=lambda kv: kv[0]):
+                # if item[1] in fillerList: # 
+                #     continue
                 if item[1] in symboleItem:
                     newgroup.append(symboleItem[item[1]])
                 else:
                     newgroup.append(item[1])
             if newgroup:
                 allpossible.append(' '.join(newgroup))
-    return (list(set(allpossible)))
+    goalList = list(set(allpossible))
+    rmGoalList = goalList[:]
+    otherSets = goalList.copy()
+    for possible in goalList:
+        otherSets.remove(possible)
+        for other in otherSets:
+            possibleLen = len(possible.split(' '))
+            if  possibleLen == len(other.split(' ')):
+                allIn = True
+                if len(possible) > len(other):
+                    shorterOne = other.split(' ')
+                    longerOne = possible.split(' ')
+                else:
+                    shorterOne = possible.split(' ')
+                    longerOne = other.split(' ')
+                for i in range(possibleLen):
+                    if not shorterOne[i] in longerOne[i]:
+                        allIn = False
+                if allIn:
+                    if ' '.join(shorterOne) in rmGoalList:
+                        rmGoalList.remove(' '.join(shorterOne))
+                    # print(shorterOne,'in',longerOne) #debug
+                #for kw in possible.split(' '):
+                #    other.split(' ')
+                # print(possible,other,'PK') #debug
+    return rmGoalList
 def main():
-    
+    fillerList = ['我要' ,'我想' ,'我想要' ,'請幫我' ,'我要換' ,'我要訂' ,'我要看' ,'我要拿' ,'我要對' ,'我想找' ,'補印' ,'的票' ,'有沒有']
     #keyworddict,allsubkey,symboleItem = loadKW2SKW('sw2a_1206v1.xlsx.csv-step3.words')
     keyworddict,allsubkey,symboleItem = loadSW2IDX('sw2idx_1206v1')
     #print(symboleItem)
     #if 'card' in allsubkey:
     #    print('inin')
     #print(keyworddict)
-    #print(getAllpossible('我要繳電話費',allsubkey,symboleItem))
+    #print(getAllpossible('A:台灣大車隊B:(欸)台灣大車隊',allsubkey,symboleItem))
     #sys.exit()
     #load excel
     df = pd.read_excel('語音互動詢答1217_1223(iBonPWSTD_stage3_20181206_NG)_1228YH.xlsx')#,header=None
@@ -172,6 +202,7 @@ def main():
     subkeyword = []
     matchKeywordList = []
     subStrPossible = []
+    mostpossibleKeyword = []
     for i in range(len(df)):
         inStr = df.iloc[i]['標記逐字稿']
         ASRresult = df.iloc[i]['ASR辨識結果']
@@ -186,11 +217,14 @@ def main():
             ASRserviceList = re.findall('「(.+)」',ASRAction)
             ASRserviceList = ASRserviceList[0].split('」還是「')
             #print(ASRserviceList)
+        
         if ASRresult == '無偵測到關鍵字':
             subStrPossible.append('')
             matchKeywordList.append('')
-            if not allpossibleList:
-                accurancy.append('不列入') #ASR true
+            mostpossibleKeyword.append('')
+            if not allpossibleList: # or only filler
+                accurancy.append('是') #ASR true
+                
                 #print('yes','no sub keyword','無偵測到關鍵字')
             else:
                 accurancy.append('否')
@@ -198,31 +232,67 @@ def main():
         elif ASRresult == 'NoVoiceIn':
             subStrPossible.append('')
             matchKeywordList.append('')
+            mostpossibleKeyword.append('')
             if str(inStr) == 'nan':
-                accurancy.append('不列入')
+                accurancy.append('是(NoVoiceIn)')
                 #print('yes',ASRresult)
-                pass
+                
             else: #ASR False
                 if not allpossibleList:
-                    accurancy.append('否')
+                    accurancy.append('不列入(NoVoiceIn)')
                 else:
                     accurancy.append('否')
-                    print('check!!')
         else:
             #for y in list(set(symbolList)):
             #    ASRkeywordList = [item[:-4].replace(y,'') for item in ASRresult.split('_')]
-            ASRkeywordList = [item[:-4] for item in ASRresult.split('_')]
-            
+            ASRkeywordList = [item[:-4] for item in ASRresult.split('_') if not item[:-4] in fillerList]
+            # for item in ASRkeywordList:
+            #     noSymbolitem = item.replace('+','').replace('-','') # check all symbol here!!
+            #     if noSymbolitem in fillerList:
+            #         ASRkeywordList.remove(item)
+
             if ' '.join(ASRkeywordList) in allpossibleList:
                 accurancy.append('是')
                 matchKeywordList.append(' '.join(ASRkeywordList))
+                mostpossibleKeyword.append(' '.join(ASRkeywordList))
                 subStrPossible.append('')
                 if not humanListenAction == ASRAction:
-                    pass
-                    #print('check!! Not same Action')
+                    #pass
+                    print('check!! Not same Action')
                     #print(allpossibleList,inStr)
                 #print('yes',allpossibleList,ASRkeywordList)
             else:
+                matchPossible = {}
+                minLen = 5
+                minLenpossible = ''
+                thisturnpossibleKeyword = ''
+                if len(allpossibleList) > 1:
+                    print(inStr, allpossibleList)
+                    for possible in allpossibleList:
+                        possibleList = possible.split(' ') 
+                        if len(possibleList) < minLen:
+                            minLen = len(possibleList)
+                            minLenpossible = possibleList
+                        incount = 0
+                        for asrkey in ASRkeywordList:
+                            if asrkey in possibleList:
+                                incount+=1
+                        matchPossible[possible] = incount
+                    sortmatchPossible = sorted(matchPossible.items(), key=lambda k: k[0])
+                    if sortmatchPossible[0][1] == 0:
+                        thisturnpossibleKeyword = minLenpossible[0]
+                        
+                    else:
+                        thisturnpossibleKeyword = sortmatchPossible[0][0]
+                        
+                    #choose incount max and length max(get rid of ' ')
+                else:
+                    if len(allpossibleList)>0:
+                        thisturnpossibleKeyword = allpossibleList[0]
+                        
+                    
+                mostpossibleKeyword.append(thisturnpossibleKeyword)
+                # 2 choice 1
                 matchKeywordList.append('')
                 subMean = False
                 for service in serviceList:
@@ -234,32 +304,9 @@ def main():
                 if subMean:
                     continue
 
-                #computer left words in allsubkey?
-                checkStr = str(inStr)[:]
-                for asrkey in ASRkeywordList:
-                    checkStr = checkStr.replace(asrkey.lower(),' ')
-                
-                thissubPossible = []
-                for subStr in checkStr.split(' '):
-                    if subStr == '':
-                        continue
-                    subPossible = getAllpossible(subStr,allsubkey,symboleItem)
-                    if len(subPossible) > 0:
-                        thissubPossible.extend(subPossible)
-                        subPossible = []
-
                 if not allpossibleList:
                     accurancy.append('不列入')
                     subStrPossible.append('')
-                elif len(thissubPossible) > 0:
-                    subStrPossible.append(thissubPossible)
-                    accurancy.append('否(有關鍵詞未辨識)')
-                
-                    
-
-                # if not checkStr in allsubkey:
-                #     accurancy.append('不列入(有未建立詞)')
-                #     subStrPossible.append('')
                 
                 else:
                     subStrPossible.append('')
@@ -267,10 +314,37 @@ def main():
                         #print('change') KPI!
                         accurancy.append('是(語意相同)')
                     else:
-                        accurancy.append('否')
-                #print('no',allpossibleList,ASRkeywordList)
+                        # ASR result - subkeyword
+                        
+                        if len(ASRkeywordList) >= len(thisturnpossibleKeyword.split(' ')):
+                            intersection = list(set(ASRkeywordList).intersection(set(thisturnpossibleKeyword.split(' '))))
+                            diffSets = set(ASRkeywordList) - set(thisturnpossibleKeyword.split(' '))
+                            #print(diffSets)    
+                            checkStr = str(inStr)[:]
+                            for item in intersection:
+                                checkStr = checkStr.replace(item,' ')
+                            checkStrList = checkStr.split(' ')
+                            for item in checkStrList:
+                                if item in fillerList or item == '':
+                                    checkStrList.remove(item)
+                            accurancy.append('不列入'+',未含:'+','.join(checkStrList))
+                            #print(re.findall('\S+',''.join(diffSets)),'intersec:',intersection)
+                        else:
+                            accurancy.append('否')
 
-            #print(allpossibleList,ASRkeywordList)
+                # # humanListen - ASR result
+                # checkStr = str(inStr)[:]
+                # for asrkey in ASRkeywordList:
+                #     if asrkey.lower() in checkStr:
+                #         checkStr = checkStr.replace(asrkey.lower(),' ')
+                #     else:
+                #         checkStr = checkStr.replace(asrkey,' ')
+                # possibleKeywordList = re.findall('\S+',checkStr)
+                # for filler in fillerList:
+                #     possibleKeywordList = (' '.join(possibleKeywordList).replace(filler,'').split(' '))
+                # print(possibleKeywordList)
+
+    #print(allpossibleList,ASRkeywordList)
     #print(accurancy)
     #print(subkeyword)    
     #print(len(accurancy),len(subkeyword),len(matchKeywordList),len(subStrPossible))
@@ -278,7 +352,8 @@ def main():
     df['subkeyword'] = subkeyword
     df['matchKeyword'] = matchKeywordList
     df['subStrPossible'] = subStrPossible
-    df1 = df[['標記逐字稿','ASR辨識結果','subkeyword','逐字稿斷詞結果','matchKeyword','accuracy','語音辨識是否正確']]
+    df['mostpossibleKeyword'] = mostpossibleKeyword
+    df1 = df[['標記逐字稿','ASR辨識結果','subkeyword','逐字稿斷詞結果','matchKeyword','mostpossibleKeyword','accuracy','語音辨識是否正確']]
     
     writer = pd.ExcelWriter('1217_idx.xlsx',engine='xlsxwriter')
     df1.to_excel(writer,'Sheet1')
