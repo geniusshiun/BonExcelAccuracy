@@ -226,7 +226,7 @@ def main():
         if ASRresult == '無偵測到關鍵字':
             subStrPossible.append('')
             matchKeywordList.append('')
-            mostpossibleKeyword.append('')
+            mostpossibleKeyword.append('*NO_KEYWORD_FOUND*')
             unlistList.append('')
             if not allpossibleList: # or only filler
                 accurancy.append('是') #ASR true
@@ -238,7 +238,7 @@ def main():
         elif ASRresult == 'NoVoiceIn':
             subStrPossible.append('')
             matchKeywordList.append('')
-            mostpossibleKeyword.append('')
+            mostpossibleKeyword.append('*NO_KEYWORD_FOUND*')
             unlistList.append('')
             if str(inStr) == 'nan':
                 accurancy.append('是(NoVoiceIn)')
@@ -261,7 +261,7 @@ def main():
             if sorted(' '.join(ASRkeywordList)) in sortallpossibleList:
                 accurancy.append('是')
                 matchKeywordList.append(' '.join(ASRkeywordList))
-                mostpossibleKeyword.append(' '.join(ASRkeywordList))
+                mostpossibleKeyword.append(';'.join(ASRkeywordList))
                 subStrPossible.append('')
                 unlistList.append('')
                 if not humanListenAction == ASRAction:
@@ -299,7 +299,7 @@ def main():
                         thisturnpossibleKeyword = allpossibleList[0]
                         
                     
-                mostpossibleKeyword.append(thisturnpossibleKeyword)
+                mostpossibleKeyword.append(thisturnpossibleKeyword.replace(' ',';'))
                 # 2 choice 1
                 matchKeywordList.append('')
                 subMean = False
