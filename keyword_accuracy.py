@@ -174,7 +174,7 @@ def main():
     fillerList = ['我要' ,'我想' ,'我想要' ,'請幫我' ,'我要換' ,'我要訂' ,'我要看' ,'我要拿' ,'我要對' ,'我想找' ,'補印' ,'的票' ,'有沒有']
     #keyworddict,allsubkey,symboleItem = loadKW2SKW('sw2a_1206v1.xlsx.csv-step3.words')
     keyworddict,allsubkey,symboleItem = loadSW2IDX('sw2idx_1206v1')
-    ouputfilename = '1217_idx.xlsx'
+    ouputfilename = 'iBon1224report.xlsx'
     #print(symboleItem)
     #if 'card' in allsubkey:
     #    print('inin')
@@ -182,7 +182,7 @@ def main():
     #print(getAllpossible('A:台灣大車隊B:(欸)台灣大車隊',allsubkey,symboleItem))
     #sys.exit()
     #load excel
-    df = pd.read_excel('語音互動詢答1217_1223(iBonPWSTD_stage3_20181206_NG)_1228YH.xlsx')#,header=None
+    df = pd.read_excel('語音互動詢答1224_1230(iBonPWSTD_stage3_20181206_NG)_0107YH(安源).xlsx')#,header=None
     symbolList = []
 
     #check it there any symbol out of [^一-龥A-Za-z]
@@ -204,8 +204,12 @@ def main():
     matchKeywordList = []
     subStrPossible = []
     mostpossibleKeyword = []
+    unlistList = []
+    
     for i in range(len(df)):
         inStr = df.iloc[i]['標記逐字稿']
+        # if inStr == 'seven那個高雄seven的':
+        #     print(inStr)
         ASRresult = df.iloc[i]['ASR辨識結果']#1226NG ASR結果
         humanListenAction = df.iloc[i]['逐字稿斷詞語意結果']
         ASRAction = df.iloc[i]['ASR辨識語意結果']
@@ -223,6 +227,7 @@ def main():
             subStrPossible.append('')
             matchKeywordList.append('')
             mostpossibleKeyword.append('')
+            unlistList.append('')
             if not allpossibleList: # or only filler
                 accurancy.append('是') #ASR true
                 
@@ -234,6 +239,7 @@ def main():
             subStrPossible.append('')
             matchKeywordList.append('')
             mostpossibleKeyword.append('')
+            unlistList.append('')
             if str(inStr) == 'nan':
                 accurancy.append('是(NoVoiceIn)')
                 #print('yes',ASRresult)
@@ -251,12 +257,13 @@ def main():
             #     noSymbolitem = item.replace('+','').replace('-','') # check all symbol here!!
             #     if noSymbolitem in fillerList:
             #         ASRkeywordList.remove(item)
-
-            if ' '.join(ASRkeywordList) in allpossibleList:
+            sortallpossibleList = [sorted(item) for item in allpossibleList]
+            if sorted(' '.join(ASRkeywordList)) in sortallpossibleList:
                 accurancy.append('是')
                 matchKeywordList.append(' '.join(ASRkeywordList))
                 mostpossibleKeyword.append(' '.join(ASRkeywordList))
                 subStrPossible.append('')
+                unlistList.append('')
                 if not humanListenAction == ASRAction:
                     #pass
                     print('check!! Not same Action')
@@ -299,6 +306,7 @@ def main():
                 for service in serviceList:
                     if service[0] in ASRserviceList:
                         accurancy.append('是(語意部分相同)')
+                        unlistList.append('')
                         subStrPossible.append('')
                         subMean = True
                         break
@@ -307,6 +315,7 @@ def main():
 
                 if not allpossibleList:
                     accurancy.append('不列入')
+                    unlistList.append('無語意詞-'+inStr)
                     subStrPossible.append('')
                 
                 else:
@@ -314,11 +323,18 @@ def main():
                     if humanListenAction == ASRAction:
                         #print('change') KPI!
                         accurancy.append('是(語意相同)')
+                        unlistList.append('')
                     else:
                         # ASR result - subkeyword
                         
                         if len(ASRkeywordList) >= len(thisturnpossibleKeyword.split(' ')):
                             intersection = list(set(ASRkeywordList).intersection(set(thisturnpossibleKeyword.split(' '))))
+                            if not intersection:
+                                accurancy.append('否')
+                                unlistList.append('')
+                                continue
+                            
+
                             diffSets = set(ASRkeywordList) - set(thisturnpossibleKeyword.split(' '))
                             #print(diffSets)    
                             checkStr = str(inStr)[:]
@@ -334,10 +350,15 @@ def main():
                             for item in checkStrList:
                                 if item in fillerList or item == '':
                                     checkStrList.remove(item)
-                            accurancy.append('不列入'+',未含:'+','.join(checkStrList))
+                            for item in thisturnpossibleKeyword.split(' '):
+                                if item in checkStrList:
+                                    checkStrList.remove(item)
+                            accurancy.append('不列入')
+                            unlistList.append('無語意詞-'+','.join(checkStrList))
                             #print(re.findall('\S+',''.join(diffSets)),'intersec:',intersection)
                         else:
                             accurancy.append('否')
+                            unlistList.append('')
 
                 # # humanListen - ASR result
                 # checkStr = str(inStr)[:]
@@ -360,7 +381,8 @@ def main():
     df['matchKeyword'] = matchKeywordList
     df['subStrPossible'] = subStrPossible
     df['mostpossibleKeyword'] = mostpossibleKeyword
-    df1 = df[['標記逐字稿','ASR辨識結果','subkeyword','逐字稿斷詞結果','matchKeyword','mostpossibleKeyword','accuracy','語音辨識是否正確']]
+    df['unlistList'] = unlistList
+    df1 = df[['標記逐字稿','ASR辨識結果','subkeyword','逐字稿斷詞結果','matchKeyword','mostpossibleKeyword','accuracy','語音辨識是否正確','unlistList']]
     
     writer = pd.ExcelWriter(ouputfilename,engine='xlsxwriter')
     df1.to_excel(writer,'Sheet1')
