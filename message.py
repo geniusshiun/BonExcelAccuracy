@@ -47,8 +47,19 @@ def main():
                     newDM21.append(re.findall('([ 一-龥「」?？，、A-Za-z0-9]+)@',item)[0])   
             #DM21 = [re.findall('([一-龥「」?？，、A-Za-z0-9]+)@',item)[0] for item in DM21 if not item == 'SemanticWords_Not_Found']
             for i in range(len(ASRresultList)):
-                if '我們找到許多關於' in newDM24[i]:
+                if '」或「' in newDM24[i]:
+                    service24 = re.findall('「(.+)」',newDM24[i])[0]
+                    service24 = service24.split('」或「')
+                if '」或「' in newDM21[i]:
+                    service21 = re.findall('「(.+)」',newDM21[i])[0]
+                    service21 = service21.split('」或「')
+                if sorted(service21) == sorted(service24):
+                    newDM21[i] = newDM24[i]
+                if '許多關於' in newDM24[i]:
                     newDM24[i] = newDM24[i].replace('許多關於','許多')
+                if '許多關於' in newDM21[i]:
+                    newDM21[i] = newDM21[i].replace('許多關於','許多')
+                
             if newDM21 == newDM24:
                 pass
             else:
