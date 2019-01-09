@@ -17,6 +17,7 @@ def main():
         ASRresultList = list(df[df['主明細ID'] == mainID]['ASR辨識結果'].values)
         DM24 = list(df[df['主明細ID'] == mainID]['ASR連續語意回應結果(DM 2.4版)'].values)
         allKeyword = {}
+        
         for item in ASRresultList:
             for each in item.split('_'):
                 keyword = each
@@ -45,16 +46,26 @@ def main():
                 else:
                     newDM21.append(re.findall('([ 一-龥「」?？，、A-Za-z0-9]+)@',item)[0])   
             #DM21 = [re.findall('([一-龥「」?？，、A-Za-z0-9]+)@',item)[0] for item in DM21 if not item == 'SemanticWords_Not_Found']
-            message.append(mainID)
             for i in range(len(ASRresultList)):
-                message.append('A:'+ASRresultList[i])
-                message.append('DM 2.4版:'+newDM24[i])
-                message.append('DM 2.1版:'+newDM21[i])
-            message.append('='*30+'\n')
-            # print(ASRresultList)
-            # print(mainID)
-            # print(sortAllK)
-            index+=1
+                if '我們找到許多關於' in newDM24[i]:
+                    newDM24[i] = newDM24[i].replace('許多關於','許多')
+            if newDM21 == newDM24:
+                pass
+            else:
+                message.append(mainID)
+                for i in range(len(ASRresultList)):
+                    
+                    message.append('A:'+ASRresultList[i])
+                    if newDM21[i] == newDM24[i]:
+                        message.append('DM一樣:'+newDM24[i])
+                    else:
+                        message.append('DM 2.4版:'+newDM24[i])
+                        message.append('DM 2.1版:'+newDM21[i])
+                message.append('='*30+'\n')
+                # print(ASRresultList)
+                # print(mainID)
+                # print(sortAllK)
+                index+=1
         finalmessage.append(message)
         # if index > 10:
         #     break
@@ -71,6 +82,7 @@ def main():
             existmainID.append(mID)
         else:
             continue
+        
         message = []
         ASRresultList = list(df[df['主明細ID'] == mID]['ASR辨識結果'].values)
         DM24 = list(df[df['主明細ID'] == mID]['ASR連續語意回應結果(DM 2.4版)'].values)
