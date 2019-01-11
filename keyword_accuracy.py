@@ -187,7 +187,7 @@ def caculate_thisturnpossibleKeyword(allpossibleList,ASRkeywordList):
                 if asrkey in possibleList:
                     incount+=1
             matchPossible[possible] = incount
-        sortmatchPossible = sorted(matchPossible.items(), key=lambda k: k[0])
+        sortmatchPossible = sorted(matchPossible.items(), key=lambda k: k[1], reverse = True)
         if sortmatchPossible[0][1] == 0:
             thisturnpossibleKeyword = minLenpossible[0]
         else:
@@ -202,7 +202,7 @@ def main():
     fillerList = ['我要' ,'我想' ,'我想要' ,'請幫我' ,'我要換' ,'我要訂' ,'我要看' ,'我要拿' ,'我要對' ,'我想找' ,'補印' ,'的票' ,'有沒有']
     #keyworddict,allsubkey,symboleItem = loadKW2SKW('sw2a_1206v1.xlsx.csv-step3.words')
     keyworddict,allsubkey,symboleItem = loadSW2IDX('sw2idx_1206v1')
-    ouputfilename = 'iBon1224reportv7.xlsx'
+    ouputfilename = 'iBon1217report.xlsx'
     #print(symboleItem)
     #if 'card' in allsubkey:
     #    print('inin')
@@ -210,7 +210,7 @@ def main():
     #print(getAllpossible('A:台灣大車隊B:(欸)台灣大車隊',allsubkey,symboleItem))
     #sys.exit()
     #load excel
-    df = pd.read_excel('語音互動詢答1224_1230(iBonPWSTD_stage3_20181206_NG)_0107YH(安源).xlsx')#,header=None
+    df = pd.read_excel('語音互動詢答1217_1223(iBonPWSTD_stage3_20181206_NG)_1228YH(安源).xlsx')#,header=None
     symbolList = []
 
     #check it there any symbol out of [^一-龥A-Za-z]
@@ -236,8 +236,8 @@ def main():
     
     for i in range(len(df)):
         inStr = df.iloc[i]['標記逐字稿']
-        # if inStr == 'seven那個高雄seven的':
-        #     print(inStr)
+        if inStr == '我要買和欣客運的票':
+            print(inStr)
         ASRresult = df.iloc[i]['ASR辨識結果']#1226NG ASR結果
         humanListenAction = df.iloc[i]['逐字稿斷詞語意結果']
         ASRAction = df.iloc[i]['ASR辨識語意結果']
@@ -252,12 +252,13 @@ def main():
             ASRserviceList = ASRserviceList[0].split('」還是「')
             #print(ASRserviceList)
         
-        if ':' in inStr:
+        if ':' in str(inStr):
             subStrPossible.append('')
             matchKeywordList.append('')
             mostpossibleKeyword.append('')
             unlistList.append('')
             accurancy.append('不列入(對話)')
+        
         elif ASRresult == '無偵測到關鍵字':
             subStrPossible.append('')
             matchKeywordList.append('')
@@ -322,7 +323,7 @@ def main():
                 if subMean:
                     continue
 
-                inStr = re.sub('(\(.+\))','',inStr)
+                inStr = re.sub(r'(\(.+\))','',str(inStr))
                 if not allpossibleList:
                     accurancy.append('不列入')
                     
