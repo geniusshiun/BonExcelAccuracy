@@ -189,7 +189,7 @@ def caculate_thisturnpossibleKeyword(allpossibleList,ASRkeywordList):
             matchPossible[possible] = incount
         sortmatchPossible = sorted(matchPossible.items(), key=lambda k: k[1], reverse = True)
         if sortmatchPossible[0][1] == 0:
-            thisturnpossibleKeyword = minLenpossible[0]
+            thisturnpossibleKeyword = ' '.join(minLenpossible)
         else:
             thisturnpossibleKeyword = sortmatchPossible[0][0]
             
@@ -202,7 +202,7 @@ def main():
     fillerList = ['我要' ,'我想' ,'我想要' ,'請幫我' ,'我要換' ,'我要訂' ,'我要看' ,'我要拿' ,'我要對' ,'我想找' ,'補印' ,'的票' ,'有沒有']
     #keyworddict,allsubkey,symboleItem = loadKW2SKW('sw2a_1206v1.xlsx.csv-step3.words')
     keyworddict,allsubkey,symboleItem = loadSW2IDX('sw2idx_1206v1')
-    ouputfilename = 'iBon1217report.xlsx'
+    ouputfilename = 'iBon1231report.xlsx'
     #print(symboleItem)
     #if 'card' in allsubkey:
     #    print('inin')
@@ -210,7 +210,7 @@ def main():
     #print(getAllpossible('A:台灣大車隊B:(欸)台灣大車隊',allsubkey,symboleItem))
     #sys.exit()
     #load excel
-    df = pd.read_excel('語音互動詢答1217_1223(iBonPWSTD_stage3_20181206_NG)_1228YH(安源).xlsx')#,header=None
+    df = pd.read_excel('語音互動詢答1231_0106(iBonPWSTD_stage3_20181206_NG)_0111YH.xlsx')#,header=None
     symbolList = []
 
     #check it there any symbol out of [^一-龥A-Za-z]
@@ -236,8 +236,8 @@ def main():
     
     for i in range(len(df)):
         inStr = df.iloc[i]['標記逐字稿']
-        if inStr == '我要買和欣客運的票':
-            print(inStr)
+        # if inStr == '商商人壽':
+        #     print(inStr)
         ASRresult = df.iloc[i]['ASR辨識結果']#1226NG ASR結果
         humanListenAction = df.iloc[i]['逐字稿斷詞語意結果']
         ASRAction = df.iloc[i]['ASR辨識語意結果']
@@ -344,11 +344,16 @@ def main():
                         ASRtotalLen = 0
                         for item in ASRkeywordList:
                             ASRtotalLen+=len(item)
-                        if ASRtotalLen>len(inStr):
-                            accurancy.append('否')
-                            unlistList.append('')
+                        # if ASRtotalLen>len(inStr):
+                        #     accurancy.append('否')
+                        #     unlistList.append('')
+                        #     continue
+                        filler_no_s = thisturnpossibleKeyword.replace('+','').replace('-','')
+                        if  filler_no_s in fillerList:
+                            accurancy.append('不列入(只有filler)')
+                            unlistList.append('無語意詞-'+inStr.replace(filler_no_s,''))
                             continue
-                        elif len(ASRkeywordList) >= len(thisturnpossibleKeyword.split(' ')):
+                        if len(ASRkeywordList) >= len(thisturnpossibleKeyword.split(' ')):
                             intersection = list(set(ASRkeywordList).intersection(set(thisturnpossibleKeyword.split(' '))))
                             if not intersection:
                                 accurancy.append('否')
