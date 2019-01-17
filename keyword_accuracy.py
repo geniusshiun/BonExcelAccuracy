@@ -116,7 +116,9 @@ def getAllpossible(inputString,allsubkey,symboleItem):
     for subkey in allsubkey:
         if subkey in inputString:
             allcandidateSubdict[subkey] = len(subkey)
-    
+        elif subkey.lower() in inputString:
+            allcandidateSubdict[subkey.lower()] = len(subkey)
+
     allcandidateSubdict = sorted(allcandidateSubdict.items(), key=lambda kv: kv[1],reverse=True)
     allcandidateSub = [allcandidateSubdict[i][0] for i in range(len(allcandidateSubdict))]
     allcandidateSub = [item for item in allcandidateSub if len(item) > 1] # ger rid of single word
@@ -202,6 +204,7 @@ def main():
     fillerList = ['我要' ,'我想' ,'我想要' ,'請幫我' ,'我要換' ,'我要訂' ,'我要看' ,'我要拿' ,'我要對' ,'我想找' ,'補印' ,'的票' ,'有沒有']
     #keyworddict,allsubkey,symboleItem = loadKW2SKW('sw2a_1206v1.xlsx.csv-step3.words')
     keyworddict,allsubkey,symboleItem = loadSW2IDX('sw2idx_1206v1')
+    allsubkey.extend(['臺灣','臺鐵','臺北','臺中','臺南','臺東'])
     ouputfilename = 'iBon1231report.xlsx'
     #print(symboleItem)
     #if 'card' in allsubkey:
@@ -236,8 +239,8 @@ def main():
     
     for i in range(len(df)):
         inStr = df.iloc[i]['標記逐字稿']
-        # if inStr == '商商人壽':
-        #     print(inStr)
+        if inStr == '台中市':
+            print(inStr)
         ASRresult = df.iloc[i]['ASR辨識結果']#1226NG ASR結果
         humanListenAction = df.iloc[i]['逐字稿斷詞語意結果']
         ASRAction = df.iloc[i]['ASR辨識語意結果']
@@ -246,7 +249,7 @@ def main():
         subkeyword.append(','.join(allpossibleList))
         serviceList = re.findall('已為您連結至(.+)的(.+)服務',humanListenAction)
         ASRserviceList = []
-        ASRkeywordList = [item[:-4].lower() for item in ASRresult.split('_') if not item[:-4] in fillerList]
+        ASRkeywordList = [item[:-4].lower() for item in ASRresult.split('_')]
         if '」還是「' in ASRAction:
             ASRserviceList = re.findall('「(.+)」',ASRAction)
             ASRserviceList = ASRserviceList[0].split('」還是「')
@@ -270,8 +273,18 @@ def main():
                 
                 #print('yes','no sub keyword','無偵測到關鍵字')
             else:
-                accurancy.append('否')
-                #print('no',allpossibleList,'vs 無偵測到關鍵字')
+                notfiller = True
+                # notfiller = False
+                # for possible in allpossibleList:
+                #     for item in possible.split(' '):
+                #         if not item.replace('+','').replace('-','') in fillerList:
+                #             notfiller = True
+                #             break
+                if notfiller:
+                    accurancy.append('否')
+                # else:
+                #     accurancy.append('是(只有filler)')
+                
         elif ASRresult == 'NoVoiceIn':
             subStrPossible.append('')
             matchKeywordList.append('')
@@ -290,7 +303,7 @@ def main():
         else:
             #for y in list(set(symbolList)):
             #    ASRkeywordList = [item[:-4].replace(y,'') for item in ASRresult.split('_')]
-            ASRkeywordList = [item[:-4].lower() for item in ASRresult.split('_') if not item[:-4] in fillerList]
+            ASRkeywordList = [item[:-4].lower() for item in ASRresult.split('_')]
             # for item in ASRkeywordList:
             #     noSymbolitem = item.replace('+','').replace('-','') # check all symbol here!!
             #     if noSymbolitem in fillerList:
@@ -330,6 +343,8 @@ def main():
                     if inStr == '':
                         unlistList.append('#無法辨識')
                     else:
+                        for filler in fillerList:
+                            inStr = inStr.replace(filler,'')
                         unlistList.append('無語意詞-'+inStr)
                     subStrPossible.append('')
                 
@@ -348,18 +363,18 @@ def main():
                         #     accurancy.append('否')
                         #     unlistList.append('')
                         #     continue
-                        filler_no_s = thisturnpossibleKeyword.replace('+','').replace('-','')
-                        if  filler_no_s in fillerList:
-                            accurancy.append('不列入(只有filler)')
-                            unlistList.append('無語意詞-'+inStr.replace(filler_no_s,''))
-                            continue
+                        # filler_no_s = thisturnpossibleKeyword.replace('+','').replace('-','')
+                        # if  filler_no_s in fillerList:
+                        #     accurancy.append('是(只有filler)')
+                        #     unlistList.append('無語意詞-'+inStr.replace(filler_no_s,''))
+                        #     continue
                         if len(ASRkeywordList) >= len(thisturnpossibleKeyword.split(' ')):
                             intersection = list(set(ASRkeywordList).intersection(set(thisturnpossibleKeyword.split(' '))))
                             if not intersection:
                                 accurancy.append('否')
                                 unlistList.append('')
                                 continue
-                            if len(intersection) != len(thisturnpossibleKeyword.split(' ')):
+                            if sorted(intersection) != sorted(thisturnpossibleKeyword.split(' ')):
                                 accurancy.append('否(有關鍵字詞未辨識)')
                                 unlistList.append('')
                                 continue
@@ -372,20 +387,26 @@ def main():
                                 checkStr = checkStr.replace(item,' ')
                                 checkStr = checkStr.replace(item.replace('+','').replace('-',''),' ')
                             checkStrList = checkStr.split(' ')
-                            if not intersection:
-                                for item in ASRkeywordList:
-                                    checkStr = checkStr.replace(item,' ')
-                                    checkStr = checkStr.replace(item.replace('+','').replace('-',''),' ')
-                                checkStrList = checkStr.split(' ')
-                            for item in checkStrList:
-                                if item in fillerList or item == '':
-                                    checkStrList.remove(item)
                             for item in thisturnpossibleKeyword.split(' '):
                                 if item in checkStrList:
                                     checkStrList.remove(item)
-                            if checkStrList:
+
+                            # if not intersection:
+                            #     for item in ASRkeywordList:
+                            #         checkStr = checkStr.replace(item,' ')
+                            #         checkStr = checkStr.replace(item.replace('+','').replace('-',''),' ')
+                            #     checkStrList = checkStr.split(' ')
+                            newcheckStrList = []
+                            for item in checkStrList:
+                                if item in fillerList or item == '':
+                                    pass
+                                else:
+                                    newcheckStrList.append(item)
+                                
+                            
+                            if newcheckStrList:
                                 accurancy.append('不列入')
-                                unlistList.append('無語意詞-'+','.join(checkStrList))
+                                unlistList.append('無語意詞-'+','.join(newcheckStrList))
                             else:
                                 accurancy.append('不列入')
                                 unlistList.append('#無法辨識')
@@ -394,17 +415,7 @@ def main():
                             accurancy.append('否')
                             unlistList.append('')
 
-                # # humanListen - ASR result
-                # checkStr = str(inStr)[:]
-                # for asrkey in ASRkeywordList:
-                #     if asrkey.lower() in checkStr:
-                #         checkStr = checkStr.replace(asrkey.lower(),' ')
-                #     else:
-                #         checkStr = checkStr.replace(asrkey,' ')
-                # possibleKeywordList = re.findall('\S+',checkStr)
-                # for filler in fillerList:
-                #     possibleKeywordList = (' '.join(possibleKeywordList).replace(filler,'').split(' '))
-                # print(possibleKeywordList)
+                
 
     #print(allpossibleList,ASRkeywordList)
     #print(accurancy)
