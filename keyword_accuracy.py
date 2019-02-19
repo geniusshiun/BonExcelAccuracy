@@ -290,17 +290,16 @@ def main():
     symbolList = []
 
     #check it there any symbol out of [^一-龥A-Za-z]
-    for i in range(len(df)):
-        ASRresult = df.iloc[i]['ASR辨識結果']
-        if ASRresult == '無偵測到關鍵字':
+    for ASRresult in df['ASR辨識結果'].tolist():
+        if ASRresult == '無偵測到關鍵字' or ASRresult == 'NoVoiceIn':
             pass
         else:
-            ASRkeywordList = [item[:-4] for item in ASRresult.split('_')]
-    for item in ASRkeywordList:
-        symbol = re.findall('([^一-龥A-Za-z]+)',item)
-        symbolList.extend(symbol)
+            ASRkeywordList = [item for item in re.sub(r'\[\d+\]','',ASRresult).split('_')]
+            for item in ASRkeywordList:
+                symbol = re.findall('([^一-龥A-Za-z]+)',item)
+                symbolList.extend(symbol)
     
-    #print(set(symbolList))
+    # print(set(symbolList))
     accurancy = []
     subkeyword = []
     matchKeywordList = []
@@ -328,7 +327,7 @@ def main():
         for item in (re.findall(r'\(.+\)',inStr)):
             inStr = inStr.replace(item,'')
         ASRresult = df.iloc[i]['ASR辨識結果']#1226NG ASR結果
-        ASRkeywordList = [item[:-4].lower() for item in ASRresult.split('_')]
+        ASRkeywordList = [item.lower() for item in re.sub(r'\[\d+\]','',ASRresult).split('_')]
         
 
         humanListenAction = str(df.iloc[i]['逐字稿斷詞語意結果'])
@@ -405,8 +404,8 @@ def main():
         else:
             #for y in list(set(symbolList)):
             #    ASRkeywordList = [item[:-4].replace(y,'') for item in ASRresult.split('_')]
-            for item in ASRresult.split('_'):
-                ASRkeywordList.append(item.replace(re.findall(r'(\[\d+\])',item)[0],'').lower())
+            
+            ASRkeywordList = list(set(ASRkeywordList))
             #ASRkeywordList = [item[:-4].lower() for item in ASRresult.split('_')]
             # for item in ASRkeywordList:
             #     noSymbolitem = item.replace('+','').replace('-','') # check all symbol here!!
@@ -428,23 +427,10 @@ def main():
             else:
                 
                 mostpossibleKeyword.append(thisturnpossibleKeyword.replace(' ',';'))
-                # 2 choice 1
                 matchKeywordList.append('')
-                # subMean = False
-                # for service in serviceList:
-                #     if service[0] in ASRserviceList:
-                #         accurancy.append('是(語意部分相同)')
-                #         unlistList.append('')
-                #         subStrPossible.append('')
-                #         subMean = True
-                #         break
-                # if subMean:
-                #     continue
-
                 inStr = re.sub(r'(\(.+\))','',str(inStr))
                 if not allpossibleList:
                     accurancy.append('不列入')
-                    
                     if inStr == '' or inStr == 'nan':
                         unlistList.append('')
                     else:
@@ -455,7 +441,6 @@ def main():
                 
                 else:
                     subStrPossible.append('')
-                    
 
                     # if humanListenAction == ASRAction:
                     #     #print('change') KPI!
