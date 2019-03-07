@@ -1,5 +1,6 @@
 import argparse
 import re
+import sys
 def loadSW2IDX(SW2Afilepath):#sw2idx_1226test_v5
      #load keyword sets
     symboleItem = {} #for +繳費 
@@ -129,7 +130,17 @@ def getAllpossible(inputString,allsubkey,symboleItem):
                 # print(possible,other,'PK') #debug
     # if rmGoalList != sorted(rmGoalList, key=len):
     #     print(rmGoalList,sorted(rmGoalList, key=len))
-    rmGoalList = sorted(rmGoalList, key=len)
+    rmMoveList = []
+    if len(rmGoalList) > 1:
+        for item in rmGoalList:
+            if '+' in item or '-' in item:
+                pass
+            else:
+                rmMoveList.append(item)
+    if rmMoveList:
+        rmGoalList = sorted(rmMoveList, key=len)    
+    else:
+        rmGoalList = sorted(rmGoalList, key=len)    
     locationDict = {}
     try:
         for item in rmGoalList:
@@ -144,47 +155,57 @@ def loadfile(filepath):
     with open(filepath,'r',encoding='utf8') as f:
         for line in f.readlines():
             inputList.append(line.strip())
-    
     return inputList
 def main():
     
     parser = argparse.ArgumentParser("Script for possible generate")
     parser.add_argument("--filepath", '-t', type=str, required=True,help='filepath')
     parser.add_argument("--idxpath", '-idx', type=str, required=True,help='idxpath')
+    parser.add_argument("--filler", '-f', default = '',type=str,help='filler path')
     args = parser.parse_args()
     keyworddict,allsubkey,symboleItem = loadSW2IDX(args.idxpath)#'sw2idx_0119v6'
-    allsubkey.extend(['臺灣','臺鐵','臺北','臺中','臺南','臺東','台灣','台鐵','台北','台中','台南','台東'])
+    #allsubkey.extend(['臺灣','臺鐵','臺北','臺中','臺南','臺東','台灣','台鐵','台北','台中','台南','台東'])
     allsubkey = list(set(allsubkey))
-
+    fillerList = []
+    if not args.filler == '':
+        fillerList = loadfile(args.filler)
+        allsubkey.extend(fillerList)
     filepath = args.filepath#'allhumankey'
     
     result = ''
     lineCnt = 0
+    fillercount = {}
+    # fillertag = False
     for inStr in loadfile(filepath):
-        allpossibleList = getAllpossible(inStr,allsubkey,symboleItem)
-        #print(allpossibleList)
         
+        allpossibleList = getAllpossible(inStr,allsubkey,symboleItem)
+        # print(allpossibleList)
+        newallpossibleList = []
         for items in allpossibleList:
+            tmpitem = []
+            for item in items.split(' '):
+                if item in fillerList:
+                    item = '*'+item+'*'
+                    # fillertag = True
+                tmpitem.append(item)
+            newallpossibleList.append(' '.join(tmpitem))
+        # print(newallpossibleList)
+        
+
+        for items in newallpossibleList:
             lineCnt+=1
             inStrList = []
             inStr = inStr.lower()
             newStr = inStr
+            #print('items.split(' ')',items.split(' '))
             for item in items.split(' '):
                 if item in inStr:
                     inStrList.append(item)
-                # elif item.upper() in inStr:
-                #     inStrList.append(item.upper())
-                #     inStr = inStr.replace(item.upper(),item)
-                # elif item.lower() in inStr:
-                #     inStrList.append(item.lower())
-                #     inStr = inStr.replace(item.lower(),item)
                 elif item.replace('+','').replace('-','') in inStr:
                     inStrList.append(item.replace('+','').replace('-',''))
-                # elif item in inStr.lower():
-                    
-                #     inStr = inStr.lower()
-                #     inStrList.append(item)
-                # newStr = inStr
+                elif '*' in item:
+                    inStrList.append(item.replace('*',''))
+            #print(inStrList)
             for item in inStrList:
                 start = [m.start() for m in re.finditer(item,inStr)]
                 end = [m.end() for m in re.finditer(item,inStr)]
@@ -199,20 +220,71 @@ def main():
                 #print(start,end)
             newStr = ' '.join([item for item in newStr.split(' ') if not item == ''])
             resultList = []
+            #print(newStr.split(' '))
             for item in newStr.split(' '):
                 if item in symboleItem:
                     resultList.append(symboleItem[item])
+                elif item in fillerList:
+                    resultList.append('*'+item+'*')
                 else:
                     resultList.append(item)
             try:
+                for item in resultList:
+                    if not item in allsubkey:
+                        if item.upper() in allsubkey:
+                            continue
+                        if not item in fillercount:
+                            fillercount[item] = 1
+                        else:
+                            fillercount[item] += 1
                 result+=' '.join(resultList)+'\t'+items.replace(' ',',')+'\n'
+                #print(result)
             except:
                 print('|'.join(inStrList),inStr,items)
-            
+            # if fillertag:
+            #     sys.exit(0)
             #result+=str(lineCnt)+' '+inStr+' => '+items.replace(' ',',')+'\n'
         
     #print(result)
-    with open(filepath+'Allpossible2','w',encoding = 'utf8') as f:
+                
+    #print(fillercount)
+    report = []
+    sorted_fillercount = sorted(fillercount.items(), key=lambda x: x[1],reverse = True)
+    for item in sorted_fillercount:
+        if item[1] >= 10 and len(item[0]) > 1 and len(re.findall(r'[一-龥]',item[0])) > 1:
+            parentheses = re.findall(r'(\(.+\))',item[0])
+            if parentheses:
+                newitem = item[0].replace(parentheses[0],'')
+                if len(newitem) > 1:
+                    report.append((newitem,item[1]))
+            else:
+                report.append(item)
+    fillers = []
+    for item in report:
+        fillers.append(item[0])
+    fillers = list(set(fillers))
+    if not fillerList:
+        with open(args.idxpath+'filler','w',encoding='utf8') as f:
+            for item in fillers:
+                f.write(item+'\n')
+        with open(args.idxpath+'fillerWithStarForSyllable','w',encoding='utf8') as f:
+            for item in fillers:
+                f.write('*'+item+'*'+'\n')
+        with open(args.idxpath+'fillerWithStar','w',encoding='utf8') as f:
+            for item in fillers:
+                f.write('*'+item+'*'+'\t1\t'+'*'+item+'*'+'\n')
+
+    # with open('Filler.txt','r',encoding='utf8') as f:
+    #     for line in f.readlines():
+    #         line = line.strip().replace(' ','')
+    #         cnt = 0
+    #         for item in sorted_fillercount:
+    #             if line in item[0]:
+    #                 cnt+=item[1]
+    #         print(line,cnt)
+            
+    #print(dict(list(sorted_fillercount.items())[0:20]))
+    with open('allhumankeyAllpossible_TEMP_0307','w',encoding = 'utf8') as f:
         f.write(result)
 if __name__ =='__main__':
     main()
