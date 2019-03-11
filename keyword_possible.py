@@ -80,7 +80,6 @@ def getAllpossible(inputString,allsubkey,symboleItem):
     allcandidateSub = [allcandidateSubdict[i][0] for i in range(len(allcandidateSubdict))]
     allcandidateSub = [item for item in allcandidateSub if len(item) > 1] # ger rid of single word
     
-    
     #print(inputString,allcandidateSub) #debug use
     
     allGroup = generatesub(inputString,allcandidateSub)
