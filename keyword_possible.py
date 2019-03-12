@@ -22,22 +22,71 @@ def loadSW2IDX(SW2Afilepath):#sw2idx_1226test_v5
                 symboleItem[replaceitem] = subkeyword
 
     return {},list(set(allsubkey)),symboleItem
-def recursive_subKey(thissubkey,othersubkeylist,inputStr,thisSets,groupSets):
-   
-    if thissubkey in othersubkeylist:
-        othersubkeylist.remove(thissubkey)
-    #if len(thissubkey) > len(inputStr.replace(' ','')):
-    #    return 'length too long'
+def newrecursive_subKey(thissubkey,othersubkeylist,inputStr,thisSets,groupSets,usedsubekyList):   
     if thissubkey in inputStr:
         thisSets.append(thissubkey)
         inputStr = inputStr.replace(thissubkey,' ')
-        #print('string',inputStr)
+        inputStr = inputStr.replace('  ',' ')
+        usedsubekyList.append(thissubkey)
+        # print('string',inputStr)
+    if not thissubkey in inputStr:
+        othersubkeylist.remove(thissubkey)
+    candidate = []
+    for subkey in othersubkeylist:
+        if subkey in inputStr:
+            candidate.append(subkey)
+    newthisSets = thisSets[:]
+    
+    if candidate:
+        for item in candidate:
+            newinputStr = inputStr[:]
+            newthisSets.append(item)
+            newinputStr = newinputStr.replace(item,' ')
+            newinputStr = newinputStr.replace('  ',' ')
+            othersubkeylist.append(othersubkeylist.pop(othersubkeylist.index(item)))
+            for subkey in othersubkeylist:            
+                if subkey in newinputStr:
+                    newthisSets.append(subkey)
+                    newinputStr = newinputStr.replace(subkey,' ')
+                    newinputStr = newinputStr.replace('  ',' ')
+            if len(re.findall(r'\S',newinputStr)) == 0:
+                groupSets.append(newthisSets)
+                newthisSets = thisSets[:]
+                # print('no more, thisSets:',thisSets)
+            else:
+                groupSets.append(newthisSets)
+                newthisSets = thisSets[:]
+    else:
+        if len(re.findall(r'\S',inputStr)) == 0:
+            groupSets.append(newthisSets)
+            # print('no more, thisSets:',thisSets)
+        else:
+            groupSets.append(newthisSets)
+        # print('wow',inputStr)
+      
+def recursive_subKey(thissubkey,othersubkeylist,inputStr,thisSets,groupSets):
+   
+    # if thissubkey in othersubkeylist:
+    #     othersubkeylist.remove(thissubkey)
+    #if len(thissubkey) > len(inputStr.replace(' ','')):
+    #    return 'length too long'
+    # if inputStr in segmentDict:
+    #     groupSets.extend(segmentDict[inputStr])
+    #     print('ininin segmentDict',inputStr)
+    #     return 'no more'
+    if thissubkey in inputStr:
+        thisSets.append(thissubkey)
+        inputStr = inputStr.replace(thissubkey,' ')
+        inputStr = inputStr.replace('  ',' ')
+        # print('string',inputStr)
     if len(re.findall(r'\S',inputStr)) == 0:
         groupSets.append(thisSets)
-        #print('no more, thisSets:',thisSets)
+        # print('no more, thisSets:',thisSets)
         return 'no more'
     inflag = False
-    
+    if not thissubkey in inputStr:
+        othersubkeylist.remove(thissubkey)
+
     candidate = []
     for subkey in othersubkeylist:
         if subkey in inputStr:
@@ -46,25 +95,37 @@ def recursive_subKey(thissubkey,othersubkeylist,inputStr,thisSets,groupSets):
     possiblecnt = 0
     for subkey in candidate:
         possiblecnt+=1
-        #print(possiblecnt,subkey,'inputStr:',inputStr,thisSets,groupSets)
+        # print(possiblecnt,subkey,'inputStr:',inputStr,thisSets,groupSets)
         recursive_subKey(subkey,candidate.copy(),inputStr,thisSets.copy(),groupSets)
-
+        
     if not inflag:
-        #print('no in, thisSets:',thisSets)
+        # print('no in, thisSets:',thisSets)
         groupSets.append(thisSets)
         return 'no more'   
 def generatesub(inputStr,allsubkey):
     
     allGroup = {}
+    usedsubekyList = []
     for subkey in allsubkey:
         #print(subkey)
-        
         allGroup[subkey] = []
         thisSets = []
-        recursive_subKey(subkey, allsubkey.copy(), inputStr, thisSets,allGroup[subkey])
+        
+        newrecursive_subKey(subkey, allsubkey.copy(), inputStr, thisSets,allGroup[subkey],usedsubekyList)
+        # recursive_subKey(subkey, allsubkey.copy(), inputStr, thisSets,allGroup[subkey])
+        # left = inputStr.replace(subkey,'',1)
+        # if not left == '':
+        #     tmpdict = []
+        #     for item in allGroup[subkey]:
+        #         sorteditem = [i for i in sorted(item) ]#if not i == subkey
+        #         if not sorteditem in tmpdict:
+        #             tmpdict.append(sorteditem)
+        #     print(len(tmpdict),tmpdict)
+            
+            
         #print('=================')
     return allGroup
-def getAllpossible(inputString,allsubkey,symboleItem):
+def getAllpossible(inputString,allsubkey,symboleItem,singleAllow,segmentDict):
     
     if str(inputString) == 'nan':
         return []
@@ -78,7 +139,8 @@ def getAllpossible(inputString,allsubkey,symboleItem):
 
     allcandidateSubdict = sorted(allcandidateSubdict.items(), key=lambda kv: kv[1],reverse=True)
     allcandidateSub = [allcandidateSubdict[i][0] for i in range(len(allcandidateSubdict))]
-    allcandidateSub = [item for item in allcandidateSub if len(item) > 1] # ger rid of single word
+    if not singleAllow:
+        allcandidateSub = [item for item in allcandidateSub if len(item) > 1] # ger rid of single word
     
     #print(inputString,allcandidateSub) #debug use
     
@@ -88,11 +150,18 @@ def getAllpossible(inputString,allsubkey,symboleItem):
     for key,groups in allGroup.items():
         for group in groups:
             #print(group)
+            newinputString = inputString[:]
             allocate = {}
             newgroup = []
             for item in group:
-                index = [m.start() for m in re.finditer(item,inputString)][0]
-                allocate[index] = item
+                indexs = []
+                for m in re.finditer(item,newinputString):
+                    indexs.append(m.start())
+                    replaceitem = '龘'*len(item)
+                    newinputString = newinputString.replace(item,replaceitem)
+                #indexs = [m.start() for m in re.finditer(item,inputString)]
+                for index in indexs:
+                    allocate[index] = item
             for item in sorted(allocate.items(), key=lambda kv: kv[0]):
                 # if item[1] in fillerList: # 
                 #     continue
@@ -161,11 +230,13 @@ def main():
     parser.add_argument("--filepath", '-t', type=str, required=True,help='filepath')
     parser.add_argument("--idxpath", '-idx', type=str, required=True,help='idxpath')
     parser.add_argument("--filler", '-f', default = '',type=str,help='filler path')
+    parser.add_argument("--single_allow", '-sa', default = True,type=bool,help='single_allow')
     args = parser.parse_args()
     keyworddict,allsubkey,symboleItem = loadSW2IDX(args.idxpath)#'sw2idx_0119v6'
     #allsubkey.extend(['臺灣','臺鐵','臺北','臺中','臺南','臺東','台灣','台鐵','台北','台中','台南','台東'])
     allsubkey = list(set(allsubkey))
     fillerList = []
+    segmentDict = {}
     if not args.filler == '':
         fillerList = loadfile(args.filler)
         allsubkey.extend(fillerList)
@@ -176,8 +247,7 @@ def main():
     fillercount = {}
     # fillertag = False
     for inStr in loadfile(filepath):
-        
-        allpossibleList = getAllpossible(inStr,allsubkey,symboleItem)
+        allpossibleList = getAllpossible(inStr,allsubkey,symboleItem,args.single_allow,segmentDict)
         # print(allpossibleList)
         newallpossibleList = []
         for items in allpossibleList:
@@ -243,7 +313,8 @@ def main():
             # if fillertag:
             #     sys.exit(0)
             #result+=str(lineCnt)+' '+inStr+' => '+items.replace(' ',',')+'\n'
-        
+        # if lineCnt > 1000:
+        #     break
     #print(result)
                 
     #print(fillercount)
@@ -283,7 +354,7 @@ def main():
     #         print(line,cnt)
             
     #print(dict(list(sorted_fillercount.items())[0:20]))
-    with open('allhumankeyAllpossible_TEMP_0307','w',encoding = 'utf8') as f:
+    with open('allhumankeyAllpossible_TEMP_0312','w',encoding = 'utf8') as f:
         f.write(result)
 if __name__ =='__main__':
     main()
