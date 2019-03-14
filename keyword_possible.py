@@ -2,6 +2,9 @@ import argparse
 import re
 import sys
 from multiprocessing import Pool, cpu_count
+import time
+#import multiprocessing as mp
+fillercount = {}
 def loadSW2IDX(SW2Afilepath):#sw2idx_1226test_v5
      #load keyword sets
     symboleItem = {} #for +繳費 
@@ -126,7 +129,7 @@ def generatesub(inputStr,allsubkey):
             
         #print('=================')
     return allGroup
-def getAllpossible(inputString,allsubkey,symboleItem,singleAllow,segmentDict):
+def getAllpossible(inputString,allsubkey,symboleItem,singleAllow):
     
     if str(inputString) == 'nan':
         return []
@@ -225,6 +228,78 @@ def loadfile(filepath):
         for line in f.readlines():
             inputList.append(line.strip())
     return inputList
+                 
+def calspossible(inStr,allsubkey,symboleItem,single_allow,fillerList):
+    result = ''
+    lineCnt = 0
+    allpossibleList = getAllpossible(inStr,allsubkey,symboleItem,single_allow)
+    # print(allpossibleList)
+    newallpossibleList = []
+    for items in allpossibleList:
+        tmpitem = []
+        for item in items.split(' '):
+            if item in fillerList:
+                item = '*'+item+'*'
+                # fillertag = True
+            tmpitem.append(item)
+        newallpossibleList.append(' '.join(tmpitem))
+    # print(newallpossibleList)
+    for items in newallpossibleList:
+        lineCnt+=1
+        inStrList = []
+        inStr = inStr.lower()
+        newStr = inStr
+        #print('items.split(' ')',items.split(' '))
+        for item in items.split(' '):
+            if item in inStr:
+                inStrList.append(item)
+            elif item.replace('+','').replace('-','') in inStr:
+                inStrList.append(item.replace('+','').replace('-',''))
+            elif '*' in item:
+                inStrList.append(item.replace('*',''))
+        #print(inStrList)
+        for item in inStrList:
+            start = [m.start() for m in re.finditer(item,inStr)]
+            end = [m.end() for m in re.finditer(item,inStr)]
+            for s, e in zip(start,end):
+                if s == 0:
+                    newStr = newStr.replace(item, item+' ')
+                elif e == len(inStr):
+                    newStr = newStr.replace(item, ' '+item)
+                else:
+                    newStr = newStr.replace(item, ' '+item+' ')
+            #start, end = [m.start(), m.end() for m in re.finditer(item,inStr)][0]
+            #print(start,end)
+        newStr = ' '.join([item for item in newStr.split(' ') if not item == ''])
+        resultList = []
+        #print(newStr.split(' '))
+        for item in newStr.split(' '):
+            if item in symboleItem:
+                resultList.append(symboleItem[item])
+            elif item in fillerList:
+                resultList.append('*'+item+'*')
+            else:
+                resultList.append(item)
+        try:
+            for item in resultList:
+                if not item in allsubkey:
+                    if item.upper() in allsubkey:
+                        continue
+                    if not item in fillercount:
+                        fillercount[item] = 1
+                    else:
+                        fillercount[item] += 1
+            result+=' '.join(resultList)+'\t'+items.replace(' ',',')+'\n'
+            #print(result)
+        except:
+            pass
+            #print('|'.join(inStrList),inStr,items)
+        # if fillertag:
+            #     sys.exit(0)
+            #result+=str(lineCnt)+' '+inStr+' => '+items.replace(' ',',')+'\n'
+        # if lineCnt > 1000:
+        #     break
+    return result
 def main():
     
     parser = argparse.ArgumentParser("Script for possible generate")
@@ -243,83 +318,21 @@ def main():
         allsubkey.extend(fillerList)
     filepath = args.filepath#'allhumankey'
     
+    sTime = time.time()
     result = ''
-    lineCnt = 0
-    fillercount = {}
-    # fillertag = False
-
+    pool = Pool(cpu_count())
+    res_list = []
+    
     for inStr in loadfile(filepath):
-        allpossibleList = getAllpossible(inStr,allsubkey,symboleItem,args.single_allow,segmentDict)
-        # print(allpossibleList)
-        newallpossibleList = []
-        for items in allpossibleList:
-            tmpitem = []
-            for item in items.split(' '):
-                if item in fillerList:
-                    item = '*'+item+'*'
-                    # fillertag = True
-                tmpitem.append(item)
-            newallpossibleList.append(' '.join(tmpitem))
-        # print(newallpossibleList)
-        
-
-        for items in newallpossibleList:
-            lineCnt+=1
-            inStrList = []
-            inStr = inStr.lower()
-            newStr = inStr
-            #print('items.split(' ')',items.split(' '))
-            for item in items.split(' '):
-                if item in inStr:
-                    inStrList.append(item)
-                elif item.replace('+','').replace('-','') in inStr:
-                    inStrList.append(item.replace('+','').replace('-',''))
-                elif '*' in item:
-                    inStrList.append(item.replace('*',''))
-            #print(inStrList)
-            for item in inStrList:
-                start = [m.start() for m in re.finditer(item,inStr)]
-                end = [m.end() for m in re.finditer(item,inStr)]
-                for s, e in zip(start,end):
-                    if s == 0:
-                        newStr = newStr.replace(item, item+' ')
-                    elif e == len(inStr):
-                        newStr = newStr.replace(item, ' '+item)
-                    else:
-                        newStr = newStr.replace(item, ' '+item+' ')
-                #start, end = [m.start(), m.end() for m in re.finditer(item,inStr)][0]
-                #print(start,end)
-            newStr = ' '.join([item for item in newStr.split(' ') if not item == ''])
-            resultList = []
-            #print(newStr.split(' '))
-            for item in newStr.split(' '):
-                if item in symboleItem:
-                    resultList.append(symboleItem[item])
-                elif item in fillerList:
-                    resultList.append('*'+item+'*')
-                else:
-                    resultList.append(item)
-            try:
-                for item in resultList:
-                    if not item in allsubkey:
-                        if item.upper() in allsubkey:
-                            continue
-                        if not item in fillercount:
-                            fillercount[item] = 1
-                        else:
-                            fillercount[item] += 1
-                result+=' '.join(resultList)+'\t'+items.replace(' ',',')+'\n'
-                #print(result)
-            except:
-                print('|'.join(inStrList),inStr,items)
-            # if fillertag:
-            #     sys.exit(0)
-            #result+=str(lineCnt)+' '+inStr+' => '+items.replace(' ',',')+'\n'
-        # if lineCnt > 1000:
-        #     break
-    #print(result)
-                
-    #print(fillercount)
+        poolargs = [inStr,allsubkey,symboleItem,args.single_allow,fillerList]
+        res = pool.apply_async(func=calspossible, args=poolargs)
+        res_list.append(res)
+    pool.close()
+    pool.join()
+    for r in res_list:
+        result += r.get()
+    
+    print('timeCost:',time.time()-sTime)
     report = []
     sorted_fillercount = sorted(fillercount.items(), key=lambda x: x[1],reverse = True)
     for item in sorted_fillercount:
