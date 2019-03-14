@@ -1,6 +1,7 @@
 import argparse
 import re
 import sys
+from multiprocessing import Pool, cpu_count
 def loadSW2IDX(SW2Afilepath):#sw2idx_1226test_v5
      #load keyword sets
     symboleItem = {} #for +繳費 
@@ -246,6 +247,7 @@ def main():
     lineCnt = 0
     fillercount = {}
     # fillertag = False
+
     for inStr in loadfile(filepath):
         allpossibleList = getAllpossible(inStr,allsubkey,symboleItem,args.single_allow,segmentDict)
         # print(allpossibleList)
@@ -354,7 +356,7 @@ def main():
     #         print(line,cnt)
             
     #print(dict(list(sorted_fillercount.items())[0:20]))
-    with open('allhumankeyAllpossible_TEMP_0312','w',encoding = 'utf8') as f:
+    with open('allhumankeyAllpossible_JS_0314zh','w',encoding = 'utf8') as f:
         f.write(result)
 if __name__ =='__main__':
     main()
