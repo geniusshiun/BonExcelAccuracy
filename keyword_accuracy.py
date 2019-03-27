@@ -98,19 +98,71 @@ def recursive_subKey(thissubkey,othersubkeylist,inputStr,thisSets,groupSets):
         #print('no in, thisSets:',thisSets)
         groupSets.append(thisSets)
         return 'no more'
-   
+def newrecursive_subKey(thissubkey,othersubkeylist,inputStr,thisSets,groupSets,usedsubekyList):   
+    if thissubkey in inputStr:
+        thisSets.append(thissubkey)
+        inputStr = inputStr.replace(thissubkey,' ')
+        inputStr = inputStr.replace('  ',' ')
+        usedsubekyList.append(thissubkey)
+        # print('string',inputStr)
+    if not thissubkey in inputStr:
+        othersubkeylist.remove(thissubkey)
+    candidate = []
+    for subkey in othersubkeylist:
+        if subkey in inputStr:
+            candidate.append(subkey)
+    newthisSets = thisSets[:]
+    
+    if candidate:
+        for item in candidate:
+            newinputStr = inputStr[:]
+            newthisSets.append(item)
+            newinputStr = newinputStr.replace(item,' ')
+            newinputStr = newinputStr.replace('  ',' ')
+            othersubkeylist.append(othersubkeylist.pop(othersubkeylist.index(item)))
+            for subkey in othersubkeylist:            
+                if subkey in newinputStr:
+                    newthisSets.append(subkey)
+                    newinputStr = newinputStr.replace(subkey,' ')
+                    newinputStr = newinputStr.replace('  ',' ')
+            if len(re.findall(r'\S',newinputStr)) == 0:
+                groupSets.append(newthisSets)
+                newthisSets = thisSets[:]
+                # print('no more, thisSets:',thisSets)
+            else:
+                groupSets.append(newthisSets)
+                newthisSets = thisSets[:]
+    else:
+        if len(re.findall(r'\S',inputStr)) == 0:
+            groupSets.append(newthisSets)
+            # print('no more, thisSets:',thisSets)
+        else:
+            groupSets.append(newthisSets)
+        # print('wow',inputStr)
+
 def generatesub(inputStr,allsubkey):
     
     allGroup = {}
+    usedsubekyList = []
     for subkey in allsubkey:
         #print(subkey)
-        
         allGroup[subkey] = []
         thisSets = []
-        recursive_subKey(subkey, allsubkey.copy(), inputStr, thisSets,allGroup[subkey])
+        newrecursive_subKey(subkey, allsubkey.copy(), inputStr, thisSets,allGroup[subkey],usedsubekyList)
+        # recursive_subKey(subkey, allsubkey.copy(), inputStr, thisSets,allGroup[subkey])
+        # left = inputStr.replace(subkey,'',1)
+        # if not left == '':
+        #     tmpdict = []
+        #     for item in allGroup[subkey]:
+        #         sorteditem = [i for i in sorted(item) ]#if not i == subkey
+        #         if not sorteditem in tmpdict:
+        #             tmpdict.append(sorteditem)
+        #     print(len(tmpdict),tmpdict)
+            
+            
         #print('=================')
     return allGroup
-def getAllpossible(inputString,allsubkey,symboleItem):
+def getAllpossible(inputString,allsubkey,symboleItem,singleAllow):
     
     if str(inputString) == 'nan':
         return []
@@ -124,38 +176,29 @@ def getAllpossible(inputString,allsubkey,symboleItem):
 
     allcandidateSubdict = sorted(allcandidateSubdict.items(), key=lambda kv: kv[1],reverse=True)
     allcandidateSub = [allcandidateSubdict[i][0] for i in range(len(allcandidateSubdict))]
-    allcandidateSub = [item for item in allcandidateSub if len(item) > 1] # ger rid of single word
-    
+    if not singleAllow:
+        allcandidateSub = [item for item in allcandidateSub if len(item) > 1] # ger rid of single word
     
     #print(inputString,allcandidateSub) #debug use
     
     allGroup = generatesub(inputString,allcandidateSub)
     #print(allGroup) #debug use
     allpossible = []
-    for key,groups in allGroup.items():   
+    for key,groups in allGroup.items():
         for group in groups:
             #print(group)
+            newinputString = inputString[:]
             allocate = {}
             newgroup = []
-            usedIndex = []
             for item in group:
-                indexList = [m.start() for m in re.finditer(item,inputString)]
-                if len(indexList) == 1:
-                    allocate[indexList[0]] = item
-                    usedIndex.append(indexList[0])
-                else:
-                    
-                    for index in usedIndex:
-                        try:
-                            indexList.remove(index)
-                        except:
-                            print(item,inputString,indexList,usedIndex)
-                    if len(indexList) == 1:
-                        allocate[indexList[0]] = item
-                        usedIndex.append(indexList[0])
-                    else:
-                        allocate[indexList[0]] = item
-                        usedIndex.append(indexList[0])
+                indexs = []
+                for m in re.finditer(item,newinputString):
+                    indexs.append(m.start())
+                    replaceitem = '龘'*len(item)
+                    newinputString = newinputString.replace(item,replaceitem)
+                #indexs = [m.start() for m in re.finditer(item,inputString)]
+                for index in indexs:
+                    allocate[index] = item
             for item in sorted(allocate.items(), key=lambda kv: kv[0]):
                 # if item[1] in fillerList: # 
                 #     continue
@@ -202,7 +245,7 @@ def getAllpossible(inputString,allsubkey,symboleItem):
     if rmMoveList:
         rmGoalList = sorted(rmMoveList, key=len)    
     else:
-        rmGoalList = sorted(rmGoalList, key=len)   
+        rmGoalList = sorted(rmGoalList, key=len)    
     locationDict = {}
     try:
         for item in rmGoalList:
@@ -212,6 +255,7 @@ def getAllpossible(inputString,allsubkey,symboleItem):
     locationDictSort = sorted(locationDict.items(), key=lambda k: k[1])
     rmGoalList = [locationDictSort[i][0] for i in range(len(locationDictSort))]
     return rmGoalList#rmGoalList
+
 def caculate_thisturnpossibleKeyword(allpossibleList,ASRkeywordList,allsubkey):
     matchPossible = {}
     minLen = 5
@@ -291,6 +335,7 @@ def leafnodeSearch(itemList,idxtable):
     output = ps.communicate()[0]
     result = output.decode("utf-8")
     return result.split('\t')[0].split(':')[1].split(';')
+       
 
 def main():
     idxfilepath = 'sw2idx'
@@ -318,13 +363,15 @@ def main():
             continue
         print(excelfile)
         df = pd.read_excel(excelfile)#,header=None
-        ouputfilename = excelfile.replace('.xlsx','result')
+        ouputfilename = excelfile.replace('.xlsx','result')+'.xlsx'
         compareExcelfile = ouputfilename
         compareString = ''#'賞櫻專車票券'
         symbolList = []
 
         #check it there any symbol out of [^一-龥A-Za-z]
         for ASRresult in df['ASR辨識結果'].tolist():
+            if str(ASRresult) == 'nan':
+                continue
             if ASRresult == '無偵測到關鍵字' or ASRresult == 'NoVoiceIn':
                 pass
             else:
@@ -343,10 +390,10 @@ def main():
         for i in range(len(df)):
             inStr = str(df.iloc[i]['標記逐字稿'])
             status = str(df.iloc[i]['狀態'])
-            if inStr == '蝦皮寄件，蝦皮寄':
-                print(inStr)
-            
-            
+            # if inStr == '機車強制險.繳費':
+            #     print(inStr)
+            # else:
+            #     continue
             if '[台' in inStr:
                 twLens = [m.group(1) for m in re.finditer(r'\[台(\d+)\]',inStr)]
                 twEnds = [m.end() for m in re.finditer(r'\[台(\d+)\]',inStr)]
@@ -362,21 +409,29 @@ def main():
                     inStr = 'nan'
             for item in (re.findall(r'\(.+\)',inStr)):
                 inStr = inStr.replace(item,'')
+            inStr = inStr.replace('，',' ').replace('...',' ')
             ASRresult = df.iloc[i]['ASR辨識結果']#1226NG ASR結果
+            allpossibleList = getAllpossible(inStr,allsubkey,symboleItem,False)
+            subkeyword.append(','.join(allpossibleList))
+            if str(ASRresult) == 'nan':
+                subStrPossible.append('')
+                matchKeywordList.append('')
+                mostpossibleKeyword.append('')
+                unlistList.append('')
+                accurancy.append('不列入(對話)')
+                continue
             ASRkeywordList = [item.lower() for item in re.sub(r'\[\d+\]','',ASRresult).split('_')]
             
 
             # humanListenAction = str(df.iloc[i]['逐字稿斷詞語意結果'])
             # ASRAction = str(df.iloc[i]['ASR辨識語意結果'])
-            allpossibleList = getAllpossible(inStr,allsubkey,symboleItem)
             
-            subkeyword.append(','.join(allpossibleList))
             
             ASRserviceList = []
             thisturnpossibleKeyword = caculate_thisturnpossibleKeyword(allpossibleList,ASRkeywordList,allsubkey)
             
             
-            if ':' in str(inStr):
+            if ':' in str(inStr) or '：' in str(inStr):
                 subStrPossible.append('')
                 matchKeywordList.append('')
                 mostpossibleKeyword.append(thisturnpossibleKeyword.replace(' ',';'))
@@ -400,13 +455,17 @@ def main():
                 mostpossibleKeyword.append(thisturnpossibleKeyword.replace(' ',';'))
                 newcheckStrList = getUnlist(inStr,thisturnpossibleKeyword,[],fillerList)
                 if not allpossibleList: # or only filler
-                    if not inStr == 'nan':
+                    if not inStr == 'nan' or inStr == '':
                         # if newcheckStrList:
                         #     unlistList.append('無語意詞-'+','.join(newcheckStrList))
                         # else:
                         #     unlistList.append('')
-                        unlistList.append('無語意詞-'+inStr)
-                        accurancy.append('是') #ASR true
+                        if len(re.findall('[一-龥A-Za-z]',inStr))>0:
+                            unlistList.append('無語意詞-'+inStr)
+                            accurancy.append('是') #ASR true
+                        else:
+                            unlistList.append('')
+                            accurancy.append('是')
                     else:
                         unlistList.append('')
                         accurancy.append('是') #ASR true
@@ -420,7 +479,11 @@ def main():
                     #newcheckStrList = getUnlist(inStr,thisturnpossibleKeyword,[],fillerList)
                     accurancy.append('否')
                     if newcheckStrList:
-                        unlistList.append('無語意詞-'+','.join(newcheckStrList))
+                        unlistStr = ','.join(newcheckStrList)
+                        if len(re.findall('[一-龥A-Za-z]',unlistStr))>0:
+                            unlistList.append('無語意詞-'+unlistStr)
+                        else:
+                            unlistList.append('')
                     else:
                         unlistList.append('')
                     # else:
@@ -476,11 +539,11 @@ def main():
                     inStr = re.sub(r'(\(.+\))','',str(inStr))
                     if not allpossibleList:
                         accurancy.append('不列入')
-                        if inStr == '' or inStr == 'nan':
+                        for filler in fillerList:
+                            inStr = inStr.replace(filler,'')
+                        if inStr == '' or inStr == 'nan' or len(re.findall('[一-龥A-Za-z]',inStr))==0:
                             unlistList.append('')
                         else:
-                            for filler in fillerList:
-                                inStr = inStr.replace(filler,'')
                             unlistList.append('無語意詞-'+inStr)
                         subStrPossible.append('')
                     
@@ -497,7 +560,12 @@ def main():
                         
                         thisUnlist = ''
                         if newcheckStrList:
-                            thisUnlist = '無語意詞-'+','.join(newcheckStrList)
+                            unlistStr = ','.join(newcheckStrList)
+                            if len(re.findall('[一-龥A-Za-z]',unlistStr))>0:
+                                thisUnlist = '無語意詞-'+unlistStr
+                            else:
+                                thisUnlist = ''
+                            
                         else:
                             thisUnlist = ''
                         #check humanListenAction is leaf node or not
@@ -568,7 +636,8 @@ def main():
             if len(accurancy) != len(subkeyword):
                 print(inStr)
                 sys.exit()
-
+        # print(accurancy[:5],df['標記逐字稿'].tolist()[:5])
+        print(df.columns.tolist())
         df['accuracy'] = accurancy
         df['subkeyword'] = subkeyword
         df['matchKeyword'] = matchKeywordList
@@ -578,10 +647,38 @@ def main():
         #df1 = df[['標記逐字稿','ASR辨識結果','subkeyword','逐字稿斷詞結果','matchKeyword','mostpossibleKeyword','accuracy','語音辨識是否正確','unlistList']]
         df1 = df[['標記逐字稿','ASR辨識結果','subkeyword','matchKeyword','mostpossibleKeyword','accuracy','語音辨識是否正確','unlistList']]
         
+        engdf = pd.DataFrame()
+        #engdf = pd.DataFrame(columns=df1.columns.tolist())
+        for ac,zhuzi in zip(accurancy,df1['標記逐字稿'].tolist()):
+            zhuzi = str(zhuzi)
+            if zhuzi == 'nan':
+                continue
+            if '否' in ac and len(re.findall('[a-zA-Z]',zhuzi)) > 0:
+                if not 'a:' in zhuzi:
+                    index = df1['標記逐字稿'].tolist().index(zhuzi)
+                    # print(ac,zhuzi)
+                    # print('index',df1['標記逐字稿'].tolist().index(zhuzi))
+                    r = df1.iloc[index]
+                    engdf = engdf.append(r, ignore_index=True)
+                    # print(engdf)
+                    
+                    # print(ac,zhuzi)
+            elif '不列入' in ac and len(re.findall('[a-zA-Z]',zhuzi)) > 0:
+                if not 'a:' in zhuzi:
+                    index = df1['標記逐字稿'].tolist().index(zhuzi)
+                    r = df1.iloc[index]
+                    engdf = engdf.append(r, ignore_index=True)
+                    # print(ac,zhuzi)
+            #else:
+        #print(engdf.head())
+        
+
+
         writer = pd.ExcelWriter(ouputfilename,engine='xlsxwriter')
         df1.to_excel(writer,'Sheet1')
-
+        engdf.to_excel(writer,'Sheet2')
         writer.save()
+
         df = pd.read_excel(compareExcelfile)#,header=None
         if not compareString == '':
             print(df[df['標記逐字稿'] == compareString]['subkeyword'])
