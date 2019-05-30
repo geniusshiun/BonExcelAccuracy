@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 import re
 import pandas as pd
@@ -5,6 +6,7 @@ import sys
 import subprocess
 import glob
 from os.path import join
+import os
 def loadSW2IDX(SW2Afilepath):#sw2idx_1226test_v5
      #load keyword sets
     symboleItem = {} #for +繳費 
@@ -290,7 +292,7 @@ def caculate_thisturnpossibleKeyword(allpossibleList,ASRkeywordList,allsubkey):
                 if item.upper() in allsubkey:
                     resultThisTurn.append(item.upper())
                 else:
-                    print(item,'WOWOWOW')
+                    pass#print(item,'WOWOWOW')
             else:
                 resultThisTurn.append(item)
     if resultThisTurn:
@@ -331,14 +333,15 @@ def leafnodeSearch(itemList,idxtable):
             seachList.append('sw'+str(idxtable.index(item.lower())+1))
 
     cmd = 'echo' + ' "'+';'.join(seachList)+'"'+'| awk -f sw2a.awk'
-    ps = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    ps = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,cwd=r'/app')
     output = ps.communicate()[0]
     result = output.decode("utf-8")
     return result.split('\t')[0].split(':')[1].split(';')
        
 
 def main():
-    idxfilepath = 'sw2idx'
+    
+    idxfilepath = '/app/sw2idx'
     idxtable = []
     with open(idxfilepath,'r',encoding='utf8') as f:
         for line in f.readlines():
@@ -358,16 +361,18 @@ def main():
     #print(getAllpossible('A:台灣大車隊B:(欸)台灣大車隊',allsubkey,symboleItem))
     #sys.exit()
     #load excel
-    for excelfile in glob.glob(join('inputexcel','*')):
+    for excelfile in glob.glob(join('data/inputexcel','*')):
+        if os.path.isfile(excelfile.replace('.xlsx','result')+'.xlsx'):
+            continue
         if 'result' in excelfile:
             continue
         print(excelfile)
-        df = pd.read_excel(excelfile)#,header=None
+        df = pd.read_excel(excelfile,sheetname=0)#,header=None
         ouputfilename = excelfile.replace('.xlsx','result')+'.xlsx'
         compareExcelfile = ouputfilename
         compareString = ''#'賞櫻專車票券'
         symbolList = []
-
+        
         #check it there any symbol out of [^一-龥A-Za-z]
         for ASRresult in df['ASR辨識結果'].tolist():
             if str(ASRresult) == 'nan':
@@ -375,12 +380,14 @@ def main():
             if ASRresult == '無偵測到關鍵字' or ASRresult == 'NoVoiceIn':
                 pass
             else:
+                
                 ASRkeywordList = [item for item in re.sub(r'\[\d+\]','',ASRresult).split('_')]
+                    
                 for item in ASRkeywordList:
                     symbol = re.findall('([^一-龥A-Za-z]+)',item)
                     symbolList.extend(symbol)
         
-        print(set(symbolList))
+        print('symbolList',set(symbolList))
         accurancy = []
         subkeyword = []
         matchKeywordList = []
@@ -420,6 +427,7 @@ def main():
                 unlistList.append('')
                 accurancy.append('不列入(對話)')
                 continue
+                
             ASRkeywordList = [item.lower() for item in re.sub(r'\[\d+\]','',ASRresult).split('_')]
             
 
@@ -455,17 +463,17 @@ def main():
                 mostpossibleKeyword.append(thisturnpossibleKeyword.replace(' ',';'))
                 newcheckStrList = getUnlist(inStr,thisturnpossibleKeyword,[],fillerList)
                 if not allpossibleList: # or only filler
-                    if not inStr == 'nan' or inStr == '':
+                    if not inStr == 'nan' or not inStr == '':
                         # if newcheckStrList:
                         #     unlistList.append('無語意詞-'+','.join(newcheckStrList))
                         # else:
                         #     unlistList.append('')
                         if len(re.findall('[一-龥A-Za-z]',inStr))>0:
                             unlistList.append('無語意詞-'+inStr)
-                            accurancy.append('是') #ASR true
+                            accurancy.append('不列入') #ASR true
                         else:
                             unlistList.append('')
-                            accurancy.append('是')
+                            accurancy.append('不列入')
                     else:
                         unlistList.append('')
                         accurancy.append('是') #ASR true
@@ -583,6 +591,7 @@ def main():
                         # ASRAction_Nodes = re.findall('[LB];([一-龥]+)',ASRAction)
                         #actionIntersection = list(set(humanListenAction_Nodes).intersection(set(ASRAction_Nodes)))
                         actionIntersection = list(set(ASRAction_Nodes).intersection(set(humanListenAction_Nodes)))
+                        #print(ASRkeywordList,ASRAction_Nodes,humanListenAction_Nodes,actionIntersection)
                         if len(ASRAction_Nodes) == 1:#'已為您連結至' in ASRAction: # |L(R)|=1 
                             if len(humanListenAction_Nodes) == 1:#'已為您連結至' in humanListenAction:
                                 if set(ASRAction_Nodes) == set(humanListenAction_Nodes):
@@ -595,7 +604,7 @@ def main():
                                     unlistList.append(thisUnlist)
                             else: 
                                 #2.2.1	If L(R) ⊄ L(S)，則應算N
-                                if not set(actionIntersection) == set(humanListenAction_Nodes) :
+                                if not set(actionIntersection):# == set(humanListenAction_Nodes) 
                                     accurancy.append('否( |L(S)|>1,|L(R)|=1  L(R) ⊄ L(S)')
                                     unlistList.append(thisUnlist)
                                 else:
@@ -637,7 +646,11 @@ def main():
                 print(inStr)
                 sys.exit()
         # print(accurancy[:5],df['標記逐字稿'].tolist()[:5])
-        print(df.columns.tolist())
+        # print(df.columns.tolist())
+        try:
+            os.remove(excelfile)
+        except Exception as e:
+            print(str(e))
         df['accuracy'] = accurancy
         df['subkeyword'] = subkeyword
         df['matchKeyword'] = matchKeywordList
@@ -679,10 +692,10 @@ def main():
         engdf.to_excel(writer,'Sheet2')
         writer.save()
 
-        df = pd.read_excel(compareExcelfile)#,header=None
-        if not compareString == '':
-            print(df[df['標記逐字稿'] == compareString]['subkeyword'])
-            print(df[df['標記逐字稿'] == compareString].mostpossibleKeyword)
+        # df = pd.read_excel(compareExcelfile)#,header=None
+        # if not compareString == '':
+            # print(df[df['標記逐字稿'] == compareString]['subkeyword'])
+            # print(df[df['標記逐字稿'] == compareString].mostpossibleKeyword)
     #print(df.head())
     # inputString = '不鏽鋼保溫壺'
     # allpossibleList = getAllpossible(inputString,allsubkey)

@@ -3,8 +3,8 @@ import re
 import sys
 from multiprocessing import Pool, cpu_count
 import time
-#import multiprocessing as mp
-fillercount = {}
+# from joblib import Parallel, delayed
+
 def loadSW2IDX(SW2Afilepath):#sw2idx_1226test_v5
      #load keyword sets
     symboleItem = {} #for +繳費 
@@ -228,10 +228,21 @@ def loadfile(filepath):
         for line in f.readlines():
             inputList.append(line.strip())
     return inputList
+def loadfilezhuzigao(filepath):
+    inputList = []
+    with open(filepath,'r',encoding='utf8') as f:
+        for line in f.readlines():
+            line = line.strip()
+            if len(re.findall('([^一-龥A-Za-z0-9]+)',line))>0:
+                pass
+            else:
+                inputList.append(line.strip())
+    return inputList
                  
 def calspossible(inStr,allsubkey,symboleItem,single_allow,fillerList):
     result = ''
     lineCnt = 0
+    fillerCandidate = []
     allpossibleList = getAllpossible(inStr,allsubkey,symboleItem,single_allow)
     # print(allpossibleList)
     newallpossibleList = []
@@ -285,10 +296,12 @@ def calspossible(inStr,allsubkey,symboleItem,single_allow,fillerList):
                 if not item in allsubkey:
                     if item.upper() in allsubkey:
                         continue
-                    if not item in fillercount:
-                        fillercount[item] = 1
                     else:
-                        fillercount[item] += 1
+                        fillerCandidate.append(item)
+                    # if not item in fillercount:
+                    #     fillercount[item] = 1
+                    # else:
+                    #     fillercount[item] += 1
             result+=' '.join(resultList)+'\t'+items.replace(' ',',')+'\n'
             #print(result)
         except:
@@ -299,44 +312,83 @@ def calspossible(inStr,allsubkey,symboleItem,single_allow,fillerList):
             #result+=str(lineCnt)+' '+inStr+' => '+items.replace(' ',',')+'\n'
         # if lineCnt > 1000:
         #     break
-    return result
+    return result,fillerCandidate
 def main():
     
     parser = argparse.ArgumentParser("Script for possible generate")
-    parser.add_argument("--filepath", '-t', type=str, required=True,help='filepath')
+    parser.add_argument("--zhuzi", '-z', type=str, required=True,help='zhuzi gou')
     parser.add_argument("--idxpath", '-idx', type=str, required=True,help='idxpath')
     parser.add_argument("--filler", '-f', default = '',type=str,help='filler path')
     parser.add_argument("--single_allow", '-sa', default = True,type=bool,help='single_allow')
+    parser.add_argument("--demolist", '-dl',  default = '', type=str,help='add some demo sentence to generate possible')
+    parser.add_argument("--outputfile", '-of',required=True, type=str,help='demolist')
+    parser.add_argument("--oodfile", '-od', type=str,default = '',help='ood list')
     args = parser.parse_args()
     keyworddict,allsubkey,symboleItem = loadSW2IDX(args.idxpath)#'sw2idx_0119v6'
+    for item in ['臺灣','臺鐵','臺北','臺中','臺南','臺東']:
+        if item in allsubkey:
+            item = item.replace('臺','台')
+            allsubkey.append(item)
+    for item in ['台灣','台鐵','台北','台中','台南','台東']:
+        if item in allsubkey:
+            item = item.replace('台','臺')
+            allsubkey.append(item)
     #allsubkey.extend(['臺灣','臺鐵','臺北','臺中','臺南','臺東','台灣','台鐵','台北','台中','台南','台東'])
     allsubkey = list(set(allsubkey))
     fillerList = []
+    demoStrs = []
     segmentDict = {}
+    fillercount = {}
+    if not args.oodfile == '':
+        oodList = loadfile(args.oodfile)
+        allsubkey.extend(oodList)
     if not args.filler == '':
         fillerList = loadfile(args.filler)
         allsubkey.extend(fillerList)
-    filepath = args.filepath#'allhumankey'
+    if not args.demolist == '':
+        demoStrs = loadfile(args.demolist)
+    
+    zhuziList = loadfilezhuzigao(args.zhuzi)#'allhumankey'
     
     sTime = time.time()
     result = ''
     pool = Pool(cpu_count())
     res_list = []
+    newzhuzi = demoStrs+zhuziList
+    # for inStr in newzhuzi[:10000]:
+    #     calspossible(inStr,allsubkey,symboleItem,args.single_allow,fillerList)
     
-    for inStr in loadfile(filepath):
+    # res_list = Parallel(n_jobs=-1, backend="threading")(delayed(calspossible)(inStr,allsubkey,symboleItem,args.single_allow,fillerList) for inStr in newzhuzi[:10000])
+    
+    # for tmpRes in res_list:
+    #     result += tmpRes[0]
+    #     for item in tmpRes[1]:
+    #         if not item in fillercount:
+    #             fillercount[item] = 1
+    #         else:
+    #             fillercount[item] += 1
+
+    for inStr in newzhuzi:
         poolargs = [inStr,allsubkey,symboleItem,args.single_allow,fillerList]
         res = pool.apply_async(func=calspossible, args=poolargs)
         res_list.append(res)
     pool.close()
     pool.join()
     for r in res_list:
-        result += r.get()
+        tmpRes = r.get()
+        result += tmpRes[0]
+        for item in tmpRes[1]:
+            if not item in fillercount:
+                fillercount[item] = 1
+            else:
+                fillercount[item] += 1
     
     print('timeCost:',time.time()-sTime)
     report = []
     sorted_fillercount = sorted(fillercount.items(), key=lambda x: x[1],reverse = True)
+    #print(sorted_fillercount)
     for item in sorted_fillercount:
-        if item[1] >= 10 and len(item[0]) > 1 and len(re.findall(r'[一-龥]',item[0])) > 1:
+        if item[1] >= 5 and len(item[0]) > 1 and len(re.findall(r'[一-龥]',item[0])) > 1:
             parentheses = re.findall(r'(\(.+\))',item[0])
             if parentheses:
                 newitem = item[0].replace(parentheses[0],'')
@@ -369,7 +421,7 @@ def main():
     #         print(line,cnt)
             
     #print(dict(list(sorted_fillercount.items())[0:20]))
-    with open('allhumankeyAllpossible_JS_0314zh','w',encoding = 'utf8') as f:
+    with open(args.outputfile,'w',encoding = 'utf8') as f: #'allhumankeyAllpossible_JS_0318tw_1'
         f.write(result)
 if __name__ =='__main__':
     main()
